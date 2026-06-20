@@ -66,6 +66,8 @@ export class ViewportManager {
   private movePlane = new THREE.Plane()
   private moveIntersection = new THREE.Vector3()
   private moveOffset = new THREE.Vector3()
+  private moveStartPos: [number, number, number] | null = null
+  private moveMergedStarts: Map<string, [number, number, number]> = new Map()
 
   private scaleActive = false
   private scalePartId: string | null = null
@@ -411,6 +413,14 @@ export class ViewportManager {
           this.controls.enabled = false
           this.moveActive = true
           this.movePartId = hit.partId
+          this.moveStartPos = [...part.transform.position]
+          this.moveMergedStarts.clear()
+          if (part.mergedPartIds) {
+            for (const mid of part.mergedPartIds) {
+              const mp = getProject().partMap[mid]
+              if (mp) this.moveMergedStarts.set(mid, [...mp.transform.position])
+            }
+          }
           this.renderer.domElement.setPointerCapture(e.pointerId)
 
           const camDir = new THREE.Vector3()
@@ -551,6 +561,23 @@ export class ViewportManager {
           updateTransform(this.movePartId, { position: newPos })
           const mesh = this.partMeshes.get(this.movePartId)
           if (mesh) mesh.position.set(newPos[0], newPos[1], newPos[2])
+
+          if (this.moveStartPos && part.mergedPartIds) {
+            const dx = newPos[0] - this.moveStartPos[0]
+            const dy = newPos[1] - this.moveStartPos[1]
+            const dz = newPos[2] - this.moveStartPos[2]
+            for (const mid of part.mergedPartIds) {
+              const startP = this.moveMergedStarts.get(mid)
+              if (!startP) continue
+              const mergedNewPos: [number, number, number] = [startP[0] + dx, startP[1] + dy, startP[2] + dz]
+              const mp = getProject().partMap[mid]
+              if (mp) {
+                updateTransform(mid, { position: mergedNewPos })
+                const mm = this.partMeshes.get(mid)
+                if (mm) mm.position.set(mergedNewPos[0], mergedNewPos[1], mergedNewPos[2])
+              }
+            }
+          }
         }
       }
       return
@@ -612,6 +639,7 @@ export class ViewportManager {
     if (this.moveActive && this.movePartId) {
       const movedPartId = this.movePartId
       this.moveActive = false; this.movePartId = null
+      this.moveStartPos = null; this.moveMergedStarts.clear()
       this.renderer.domElement.releasePointerCapture(e.pointerId)
       this.controls.enabled = true
 
