@@ -488,7 +488,11 @@ export function booleanAdd(sourceId: string, targetId: string): string | null {
 
   source.name = `${source.name}+${target.name}`
 
-  delete project.partMap[targetId]
+  if (!source.mergedPartIds) source.mergedPartIds = []
+  if (!source.mergedPartIds.includes(targetId)) source.mergedPartIds.push(targetId)
+
+  target.mergedInto = sourceId
+  target.visible = false
   project.rootParts = project.rootParts.filter((pid) => pid !== targetId)
 
   selectedPartId = sourceId

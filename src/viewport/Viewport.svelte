@@ -82,6 +82,13 @@
     }
   })
 
+  // Sync highlight when selection changes from UI panel
+  $effect(() => {
+    const selectedId = getSelectedPartId()
+    if (!manager) return
+    manager.syncHighlight()
+  })
+
   // Hide rotation gizmo when switching to face/scale mode
   $effect(() => {
     const mode = getSelectionMode()

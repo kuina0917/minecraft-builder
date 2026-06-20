@@ -1,4 +1,10 @@
 import * as THREE from 'three'
+import type { Part } from '../types'
+import { getShapeSize } from '../parts/ShapeRegistry'
+
+function intervalsOverlap(a1: number, a2: number, b1: number, b2: number): boolean {
+  return a1 < b2 && b1 < a2
+}
 
 export interface FaceHit {
   partId: string
@@ -10,6 +16,7 @@ export class SelectionManager {
   private raycaster = new THREE.Raycaster()
   private pointer = new THREE.Vector2()
   private selectedObjects = new Map<string, { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[] }>()
+  private mergedMeshes = new Map<string, { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[]; wasVisible: boolean }>()
   private highlightMaterial = new THREE.MeshStandardMaterial({
     color: 0x44aaff,
     emissive: 0x2244aa,
@@ -77,6 +84,70 @@ export class SelectionManager {
     }
   }
 
+  highlightByPartId(partId: string, scene: THREE.Scene): void {
+    if (this.selectedObjects.has(partId)) return
+    scene.traverse((obj) => {
+      if (obj instanceof THREE.Mesh && obj.userData.partId === partId) {
+        this.highlight(obj)
+      }
+    })
+  }
+
+  highlightMerged(selectedPartId: string, partMap: Record<string, Part>, scene: THREE.Scene): void {
+    const part = partMap[selectedPartId]
+    if (!part || !part.mergedPartIds) return
+
+    for (const mid of part.mergedPartIds) {
+      if (this.mergedMeshes.has(mid)) continue
+      scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh && obj.userData.partId === mid) {
+          if (!Array.isArray(obj.material)) {
+            const wasVisible = obj.visible
+            this.mergedMeshes.set(mid, { mesh: obj, material: obj.material, wasVisible })
+            obj.visible = true
+            obj.material = this.highlightMaterial.clone()
+          }
+        }
+      })
+    }
+  }
+
+  clearMergedHighlight(): void {
+    for (const [, entry] of this.mergedMeshes) {
+      entry.mesh.material = entry.material
+      entry.mesh.visible = entry.wasVisible
+    }
+    this.mergedMeshes.clear()
+  }
+
+  highlightCombined(selectedPartId: string, partMap: Record<string, Part>, scene: THREE.Scene): void {
+    const part = partMap[selectedPartId]
+    if (!part) return
+
+    this.highlightMerged(selectedPartId, partMap, scene)
+
+    const [px, py, pz] = part.transform.position
+    const pSize = getShapeSize(part.elements[0]?.shape ?? { type: 'box', width: 1, height: 1, depth: 1 })
+    const pw = pSize[0], ph = pSize[1], pd = pSize[2]
+
+    for (const [pid, other] of Object.entries(partMap)) {
+      if (pid === selectedPartId) continue
+      if (!other.visible) continue
+
+      const [ox, oy, oz] = other.transform.position
+      const oSize = getShapeSize(other.elements[0]?.shape ?? { type: 'box', width: 1, height: 1, depth: 1 })
+      const ow = oSize[0], oh = oSize[1], od = oSize[2]
+
+      const adjX = (px + pw === ox || ox + ow === px) && intervalsOverlap(py, py + ph, oy, oy + oh) && intervalsOverlap(pz, pz + pd, oz, oz + od)
+      const adjY = (py + ph === oy || oy + oh === py) && intervalsOverlap(px, px + pw, ox, ox + ow) && intervalsOverlap(pz, pz + pd, oz, oz + od)
+      const adjZ = (pz + pd === oz || oz + od === pz) && intervalsOverlap(px, px + pw, ox, ox + ow) && intervalsOverlap(py, py + ph, oy, oy + oh)
+
+      if (adjX || adjY || adjZ) {
+        this.highlightByPartId(pid, scene)
+      }
+    }
+  }
+
   unhighlight(partId: string): void {
     const entry = this.selectedObjects.get(partId)
     if (!entry) return
@@ -115,6 +186,7 @@ export class SelectionManager {
       entry.mesh.material = entry.material
     }
     this.selectedObjects.clear()
+    this.clearMergedHighlight()
   }
 
   isHighlighted(partId: string): boolean {

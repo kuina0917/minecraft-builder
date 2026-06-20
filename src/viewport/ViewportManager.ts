@@ -25,6 +25,7 @@ import {
 } from '../store/placementStore.svelte'
 import {
   getProject,
+  getSelectedPartId,
   updateTransform,
   toggleSelectPart,
   mergeSelected,
@@ -638,8 +639,12 @@ export class ViewportManager {
       } else {
         const id = this.selection.select(e, this.camera, this.scene)
         this.onSelect?.(id)
-        if (id) this.rotationController.show(id, this.scene)
-        else this.rotationController.hide()
+        if (id) {
+          this.selection.highlightCombined(id, getProject().partMap, this.scene)
+          this.rotationController.show(id, this.scene)
+        } else {
+          this.rotationController.hide()
+        }
       }
     }
   }
@@ -694,6 +699,7 @@ export class ViewportManager {
 
   addPartToScene(part: Part): THREE.Object3D {
     const obj = createPartMesh(part)
+    obj.visible = part.visible
     this.scene.add(obj)
     this.partMeshes.set(part.id, obj)
     return obj
@@ -744,6 +750,26 @@ export class ViewportManager {
     this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(width, height)
+  }
+
+  syncHighlight(): void {
+    const id = getSelectedPartId()
+    this.selection.clearHighlight()
+    if (id) {
+      const mesh = this.partMeshes.get(id)
+      if (mesh) {
+        if (mesh instanceof THREE.Mesh) {
+          this.selection.highlight(mesh)
+        } else {
+          mesh.traverse((child) => {
+            if (child instanceof THREE.Mesh && child.userData.partId === id) {
+              this.selection.highlight(child)
+            }
+          })
+        }
+      }
+      this.selection.highlightCombined(id, getProject().partMap, this.scene)
+    }
   }
 
   start(): void {

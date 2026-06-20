@@ -101,6 +101,9 @@ export interface Part {
   parentId: string | null
   visible: boolean
   color: string
+  combinedWith?: string[]
+  mergedInto?: string
+  mergedPartIds?: string[]
 }
 
 export interface Project {
