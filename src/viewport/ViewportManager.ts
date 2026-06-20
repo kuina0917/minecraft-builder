@@ -69,6 +69,7 @@ export class ViewportManager {
   private moveOffset = new THREE.Vector3()
   private moveStartPos: [number, number, number] | null = null
   private moveMergedStarts: Map<string, [number, number, number]> = new Map()
+  private moveMultiStarts: Map<string, [number, number, number]> = new Map()
 
   private scaleActive = false
   private scalePartId: string | null = null
@@ -80,6 +81,11 @@ export class ViewportManager {
   }> = []
   private scaleStartX = 0
   private scaleStartY = 0
+  private scaleMultiStarts: Map<string, Array<{
+    index: number
+    pos: [number, number, number]
+    dims: Record<string, number>
+  }>> = new Map()
 
   suppressRebuild = false
 
@@ -395,6 +401,24 @@ export class ViewportManager {
             }
             return { index: i, pos: [...el.transform.position] as [number, number, number], dims }
           })
+          this.scaleMultiStarts.clear()
+          const selectedIds = getSelectedPartIds()
+          if (selectedIds.length > 1 && selectedIds.includes(faceHit.partId)) {
+            for (const sid of selectedIds) {
+              if (sid === faceHit.partId) continue
+              const sp = getProject().partMap[sid]
+              if (sp) {
+                this.scaleMultiStarts.set(sid, sp.elements.map((el, i) => {
+                  const dims: Record<string, number> = {}
+                  const keys = this.getDimKeys(el.shape.type)
+                  for (const k of keys) {
+                    dims[k] = (el.shape as Record<string, number>)[k]
+                  }
+                  return { index: i, pos: [...el.transform.position] as [number, number, number], dims }
+                }))
+              }
+            }
+          }
           snapshot()
           this.scaleActive = true
           this.suppressRebuild = true
@@ -416,10 +440,19 @@ export class ViewportManager {
           this.movePartId = hit.partId
           this.moveStartPos = [...part.transform.position]
           this.moveMergedStarts.clear()
+          this.moveMultiStarts.clear()
           if (part.mergedPartIds) {
             for (const mid of part.mergedPartIds) {
               const mp = getProject().partMap[mid]
               if (mp) this.moveMergedStarts.set(mid, [...mp.transform.position])
+            }
+          }
+          const selectedIds = getSelectedPartIds()
+          if (selectedIds.length > 1 && selectedIds.includes(hit.partId)) {
+            for (const sid of selectedIds) {
+              if (sid === hit.partId) continue
+              const sp = getProject().partMap[sid]
+              if (sp) this.moveMultiStarts.set(sid, [...sp.transform.position])
             }
           }
           this.renderer.domElement.setPointerCapture(e.pointerId)
@@ -537,6 +570,41 @@ export class ViewportManager {
           }
         }
         this.updatePartMeshInScene(this.scalePartId)
+
+        for (const [sid, multiDims] of this.scaleMultiStarts) {
+          const sp = getProject().partMap[sid]
+          if (!sp) continue
+          for (const sd of multiDims) {
+            const el = sp.elements[sd.index]
+            if (!el) continue
+            if (el.shape.type === 'box' || el.shape.type === 'wedge') {
+              const deltaW = steps * unit
+              const deltaD = steps * unit
+              const newW = Math.max(unit, sd.dims.width + deltaW)
+              const newD = Math.max(unit, sd.dims.depth + deltaD)
+              const shape = el.shape as BoxParams | WedgeParams
+              shape.width = newW
+              shape.depth = newD
+              const pos = [...sd.pos] as [number, number, number]
+              if (anchor === 'ne' || anchor === 'nw') {
+                pos[2] = sd.pos[2] + sd.dims.depth - newD
+              }
+              if (anchor === 'sw' || anchor === 'nw') {
+                pos[0] = sd.pos[0] + sd.dims.width - newW
+              }
+              el.transform.position = pos
+            } else {
+              const delta = steps * unit
+              const keys = this.getDimKeys(el.shape.type)
+              for (const k of keys) {
+                const oldVal = sd.dims[k]
+                if (oldVal <= 0) continue
+                ;(el.shape as Record<string, number>)[k] = Math.max(unit, Math.round((oldVal + delta) / unit) * unit)
+              }
+            }
+          }
+          this.updatePartMeshInScene(sid)
+        }
       }
       return
     }
@@ -576,6 +644,21 @@ export class ViewportManager {
                 updateTransform(mid, { position: mergedNewPos })
                 const mm = this.partMeshes.get(mid)
                 if (mm) mm.position.set(mergedNewPos[0], mergedNewPos[1], mergedNewPos[2])
+              }
+            }
+          }
+
+          if (this.moveStartPos && this.moveMultiStarts.size > 0) {
+            const dx = newPos[0] - this.moveStartPos[0]
+            const dy = newPos[1] - this.moveStartPos[1]
+            const dz = newPos[2] - this.moveStartPos[2]
+            for (const [sid, startP] of this.moveMultiStarts) {
+              const multiNewPos: [number, number, number] = [startP[0] + dx, startP[1] + dy, startP[2] + dz]
+              const sp = getProject().partMap[sid]
+              if (sp) {
+                updateTransform(sid, { position: multiNewPos })
+                const sm = this.partMeshes.get(sid)
+                if (sm) sm.position.set(multiNewPos[0], multiNewPos[1], multiNewPos[2])
               }
             }
           }
@@ -624,6 +707,7 @@ export class ViewportManager {
       this.scaleActive = false
       this.scalePartId = null
       this.scaleStartDims = []
+      this.scaleMultiStarts.clear()
       bumpRevision()
       this.suppressRebuild = false
       this.renderer.domElement.releasePointerCapture(e.pointerId)
@@ -640,7 +724,7 @@ export class ViewportManager {
     if (this.moveActive && this.movePartId) {
       const movedPartId = this.movePartId
       this.moveActive = false; this.movePartId = null
-      this.moveStartPos = null; this.moveMergedStarts.clear()
+      this.moveStartPos = null; this.moveMergedStarts.clear(); this.moveMultiStarts.clear()
       this.renderer.domElement.releasePointerCapture(e.pointerId)
       this.controls.enabled = true
 
