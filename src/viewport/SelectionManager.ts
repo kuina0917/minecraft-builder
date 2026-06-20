@@ -1,10 +1,5 @@
 import * as THREE from 'three'
 import type { Part } from '../types'
-import { getShapeSize } from '../parts/ShapeRegistry'
-
-function intervalsOverlap(a1: number, a2: number, b1: number, b2: number): boolean {
-  return a1 < b2 && b1 < a2
-}
 
 export interface FaceHit {
   partId: string
@@ -125,27 +120,6 @@ export class SelectionManager {
     if (!part) return
 
     this.highlightMerged(selectedPartId, partMap, scene)
-
-    const [px, py, pz] = part.transform.position
-    const pSize = getShapeSize(part.elements[0]?.shape ?? { type: 'box', width: 1, height: 1, depth: 1 })
-    const pw = pSize[0], ph = pSize[1], pd = pSize[2]
-
-    for (const [pid, other] of Object.entries(partMap)) {
-      if (pid === selectedPartId) continue
-      if (!other.visible) continue
-
-      const [ox, oy, oz] = other.transform.position
-      const oSize = getShapeSize(other.elements[0]?.shape ?? { type: 'box', width: 1, height: 1, depth: 1 })
-      const ow = oSize[0], oh = oSize[1], od = oSize[2]
-
-      const adjX = (px + pw === ox || ox + ow === px) && intervalsOverlap(py, py + ph, oy, oy + oh) && intervalsOverlap(pz, pz + pd, oz, oz + od)
-      const adjY = (py + ph === oy || oy + oh === py) && intervalsOverlap(px, px + pw, ox, ox + ow) && intervalsOverlap(pz, pz + pd, oz, oz + od)
-      const adjZ = (pz + pd === oz || oz + od === pz) && intervalsOverlap(px, px + pw, ox, ox + ow) && intervalsOverlap(py, py + ph, oy, oy + oh)
-
-      if (adjX || adjY || adjZ) {
-        this.highlightByPartId(pid, scene)
-      }
-    }
   }
 
   unhighlight(partId: string): void {
