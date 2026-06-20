@@ -160,6 +160,7 @@ export class FaceEditor {
     })
     const mesh = new THREE.Mesh(geom, mat)
     mesh.userData.isHighlight = true
+    mesh.raycast = () => {}
 
     const center = this.getFaceCenter(shape, position, direction)
     mesh.position.copy(center)
