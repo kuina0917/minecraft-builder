@@ -11,7 +11,7 @@ export class SelectionManager {
   private raycaster = new THREE.Raycaster()
   private pointer = new THREE.Vector2()
   private selectedObjects = new Map<string, { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[] }>()
-  private mergedMeshes = new Map<string, { group: THREE.Group; meshes: { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[] }[]; wasVisible: boolean }>()
+  private mergedMeshes = new Map<string, { group: THREE.Group; meshes: { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[]; wasVisible: boolean }[]; wasVisible: boolean }>()
   private highlightMaterial = new THREE.MeshStandardMaterial({
     color: 0x44aaff,
     emissive: 0x2244aa,
@@ -98,20 +98,18 @@ export class SelectionManager {
         if (obj instanceof THREE.Group && obj.userData.partId === mid) {
           const wasVisible = obj.visible
           obj.visible = true
-          const meshes: THREE.Mesh[] = []
+          const meshes: { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[]; wasVisible: boolean }[] = []
           obj.traverse((child) => {
             if (child instanceof THREE.Mesh) {
-              meshes.push(child)
+              const mWasVisible = child.visible
+              child.visible = true
+              if (!Array.isArray(child.material)) {
+                meshes.push({ mesh: child, material: child.material, wasVisible: mWasVisible })
+                child.material = this.highlightMaterial.clone()
+              }
             }
           })
-          const entries: { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[] }[] = []
-          for (const m of meshes) {
-            if (!Array.isArray(m.material)) {
-              entries.push({ mesh: m, material: m.material })
-              m.material = this.highlightMaterial.clone()
-            }
-          }
-          this.mergedMeshes.set(mid, { group: obj, meshes: entries, wasVisible })
+          this.mergedMeshes.set(mid, { group: obj, meshes, wasVisible })
         }
       })
     }
@@ -121,6 +119,7 @@ export class SelectionManager {
     for (const [, entry] of this.mergedMeshes) {
       for (const me of entry.meshes) {
         me.mesh.material = me.material
+        me.mesh.visible = me.wasVisible
       }
       entry.group.visible = entry.wasVisible
     }

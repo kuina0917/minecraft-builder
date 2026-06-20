@@ -193,6 +193,20 @@ export function removePart(id: string) {
   const part = project.partMap[id]
   if (!part) return
 
+  if (part.mergedPartIds) {
+    for (const mid of part.mergedPartIds) {
+      delete project.partMap[mid]
+      project.rootParts = project.rootParts.filter((pid) => pid !== mid)
+    }
+  }
+
+  for (const p of Object.values(project.partMap)) {
+    if (p.mergedInto === id) {
+      delete project.partMap[p.id]
+      project.rootParts = project.rootParts.filter((pid) => pid !== p.id)
+    }
+  }
+
   const removeRecursive = (pid: string) => {
     const p = project.partMap[pid]
     if (!p) return

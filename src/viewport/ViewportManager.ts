@@ -700,6 +700,11 @@ export class ViewportManager {
   addPartToScene(part: Part): THREE.Object3D {
     const obj = createPartMesh(part)
     obj.visible = part.visible
+    if (!part.visible) {
+      obj.traverse((child) => {
+        if (child instanceof THREE.Mesh) child.visible = false
+      })
+    }
     this.scene.add(obj)
     this.partMeshes.set(part.id, obj)
     return obj
