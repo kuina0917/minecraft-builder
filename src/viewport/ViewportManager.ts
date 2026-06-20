@@ -340,17 +340,18 @@ export class ViewportManager {
     if (getStretchMode()) {
       const faceHit = this.faceEditor.raycastFace(e, this.camera, this.scene)
       if (faceHit) {
-        const current = this.faceEditor.getSelectedFace()
-        if (current && current.partId === faceHit.partId && current.direction === faceHit.direction) {
-          // Click same face → deselect (reset selection state + highlight)
-          this.faceEditor.deselect()
+        if (e.ctrlKey) {
+          toggleSelectPart(faceHit.partId)
         } else {
-          // Click different/new face → select + highlight
-          this.faceEditor.selectFace(faceHit, this.scene)
-          this.renderer.domElement.setPointerCapture(e.pointerId)
+          const current = this.faceEditor.getSelectedFace()
+          if (current && current.partId === faceHit.partId && current.direction === faceHit.direction) {
+            this.faceEditor.deselect()
+          } else {
+            this.faceEditor.selectFace(faceHit, this.scene)
+            this.renderer.domElement.setPointerCapture(e.pointerId)
+          }
         }
       } else {
-        // Clicked empty space → clear selection
         this.faceEditor.deselect()
       }
       return
@@ -360,11 +361,15 @@ export class ViewportManager {
     if (mode === 'face') {
       const faceHit = this.faceEditor.raycastFace(e, this.camera, this.scene)
       if (faceHit) {
-        this.faceEditor.selectFace(faceHit, this.scene)
-        this.faceEditor.startDrag(e, this.camera)
-        this.suppressRebuild = true
-        this.renderer.domElement.setPointerCapture(e.pointerId)
-        this.controls.enabled = false
+        if (e.ctrlKey) {
+          toggleSelectPart(faceHit.partId)
+        } else {
+          this.faceEditor.selectFace(faceHit, this.scene)
+          this.faceEditor.startDrag(e, this.camera)
+          this.suppressRebuild = true
+          this.renderer.domElement.setPointerCapture(e.pointerId)
+          this.controls.enabled = false
+        }
       }
       return
     }
@@ -373,57 +378,61 @@ export class ViewportManager {
     if (mode === 'scale') {
       const faceHit = this.faceEditor.raycastFace(e, this.camera, this.scene)
       if (faceHit) {
-        const part = getProject().partMap[faceHit.partId]
-        if (part && (part.elements[0]?.shape?.type ?? 'box') !== 'air') {
-          this.scalePartId = faceHit.partId
-          this.scaleStartX = e.clientX
-          this.scaleStartY = e.clientY
+        if (e.ctrlKey) {
+          toggleSelectPart(faceHit.partId)
+        } else {
+          const part = getProject().partMap[faceHit.partId]
+          if (part && (part.elements[0]?.shape?.type ?? 'box') !== 'air') {
+            this.scalePartId = faceHit.partId
+            this.scaleStartX = e.clientX
+            this.scaleStartY = e.clientY
 
-          const el = part.elements[faceHit.elementIndex]
-          if (el) {
-            const size = getShapeSize(el.shape)
-            const cx = part.transform.position[0] + el.transform.position[0] + size[0] / 2
-            const cz = part.transform.position[2] + el.transform.position[2] + size[2] / 2
-            const hitX = faceHit.point.x
-            const hitZ = faceHit.point.z
-            if (hitX >= cx && hitZ >= cz) this.scaleAnchor = 'se'
-            else if (hitX < cx && hitZ >= cz) this.scaleAnchor = 'sw'
-            else if (hitX >= cx && hitZ < cz) this.scaleAnchor = 'ne'
-            else this.scaleAnchor = 'nw'
-            setScaleAnchor(this.scaleAnchor)
-          }
-
-          this.scaleStartDims = part.elements.map((el, i) => {
-            const dims: Record<string, number> = {}
-            const keys = this.getDimKeys(el.shape.type)
-            for (const k of keys) {
-              dims[k] = (el.shape as Record<string, number>)[k]
+            const el = part.elements[faceHit.elementIndex]
+            if (el) {
+              const size = getShapeSize(el.shape)
+              const cx = part.transform.position[0] + el.transform.position[0] + size[0] / 2
+              const cz = part.transform.position[2] + el.transform.position[2] + size[2] / 2
+              const hitX = faceHit.point.x
+              const hitZ = faceHit.point.z
+              if (hitX >= cx && hitZ >= cz) this.scaleAnchor = 'se'
+              else if (hitX < cx && hitZ >= cz) this.scaleAnchor = 'sw'
+              else if (hitX >= cx && hitZ < cz) this.scaleAnchor = 'ne'
+              else this.scaleAnchor = 'nw'
+              setScaleAnchor(this.scaleAnchor)
             }
-            return { index: i, pos: [...el.transform.position] as [number, number, number], dims }
-          })
-          this.scaleMultiStarts.clear()
-          const selectedIds = getSelectedPartIds()
-          if (selectedIds.length > 1 && selectedIds.includes(faceHit.partId)) {
-            for (const sid of selectedIds) {
-              if (sid === faceHit.partId) continue
-              const sp = getProject().partMap[sid]
-              if (sp) {
-                this.scaleMultiStarts.set(sid, sp.elements.map((el, i) => {
-                  const dims: Record<string, number> = {}
-                  const keys = this.getDimKeys(el.shape.type)
-                  for (const k of keys) {
-                    dims[k] = (el.shape as Record<string, number>)[k]
-                  }
-                  return { index: i, pos: [...el.transform.position] as [number, number, number], dims }
-                }))
+
+            this.scaleStartDims = part.elements.map((el, i) => {
+              const dims: Record<string, number> = {}
+              const keys = this.getDimKeys(el.shape.type)
+              for (const k of keys) {
+                dims[k] = (el.shape as Record<string, number>)[k]
+              }
+              return { index: i, pos: [...el.transform.position] as [number, number, number], dims }
+            })
+            this.scaleMultiStarts.clear()
+            const selectedIds = getSelectedPartIds()
+            if (selectedIds.length > 1 && selectedIds.includes(faceHit.partId)) {
+              for (const sid of selectedIds) {
+                if (sid === faceHit.partId) continue
+                const sp = getProject().partMap[sid]
+                if (sp) {
+                  this.scaleMultiStarts.set(sid, sp.elements.map((el, i) => {
+                    const dims: Record<string, number> = {}
+                    const keys = this.getDimKeys(el.shape.type)
+                    for (const k of keys) {
+                      dims[k] = (el.shape as Record<string, number>)[k]
+                    }
+                    return { index: i, pos: [...el.transform.position] as [number, number, number], dims }
+                  }))
+                }
               }
             }
+            snapshot()
+            this.scaleActive = true
+            this.suppressRebuild = true
+            this.renderer.domElement.setPointerCapture(e.pointerId)
+            this.controls.enabled = false
           }
-          snapshot()
-          this.scaleActive = true
-          this.suppressRebuild = true
-          this.renderer.domElement.setPointerCapture(e.pointerId)
-          this.controls.enabled = false
         }
       }
       return
