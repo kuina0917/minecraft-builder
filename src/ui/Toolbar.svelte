@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getProject, undo } from '../store/projectStore.svelte'
-  import { getSelectionMode, setSelectionMode, getSnapUnit, setSnapUnit } from '../store/placementStore.svelte'
+  import { getSelectionMode, setSelectionMode, getSnapUnit, setSnapUnit, getScaleAnchor } from '../store/placementStore.svelte'
   import { saveProject } from '../lib/partEncoder'
   import ExportDialog from './ExportDialog.svelte'
   import type { SelectionMode } from '../types'
@@ -44,6 +44,14 @@
     <button class="tool-btn" class:active={getSelectionMode() === 'object'} onclick={() => changeMode('object')} title="Objectモード [O]">Object</button>
     <button class="tool-btn" class:active={getSelectionMode() === 'face'} onclick={() => changeMode('face')} title="Face編集モード [F]">Face</button>
     <button class="tool-btn" class:active={getSelectionMode() === 'scale'} onclick={() => changeMode('scale')} title="Scaleモード [S]">Scale</button>
+    {#if getSelectionMode() === 'scale'}
+      <span class="anchor-compass">
+        <span class="compass-cell" class:active={getScaleAnchor() === 'nw'}>NW</span>
+        <span class="compass-cell" class:active={getScaleAnchor() === 'ne'}>NE</span>
+        <span class="compass-cell" class:active={getScaleAnchor() === 'sw'}>SW</span>
+        <span class="compass-cell" class:active={getScaleAnchor() === 'se'}>SE</span>
+      </span>
+    {/if}
     <span class="separator"></span>
     <button class="tool-btn" onclick={toggleSnap} title="スナップ単位を切替 (+/-)">
       Snap: {getSnapUnit()}
@@ -135,5 +143,30 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .anchor-compass {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-left: 4px;
+  }
+
+  .compass-cell {
+    padding: 1px 5px;
+    font-size: 9px;
+    text-align: center;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    line-height: 1.4;
+  }
+
+  .compass-cell.active {
+    background: var(--accent);
+    color: white;
   }
 </style>

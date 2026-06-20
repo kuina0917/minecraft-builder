@@ -1,11 +1,14 @@
 import type { ShapeType, SelectionMode, BooleanOp } from '../types'
 
+export type AnchorType = 'se' | 'sw' | 'ne' | 'nw'
+
 let activeType = $state<ShapeType | null>(null)
 let stretchMode = $state(false)
 let selectionMode = $state<SelectionMode>('object')
 let snapUnit = $state(1.0) // 1.0 or 0.5
 let booleanOp = $state<BooleanOp | null>(null)
 let booleanSourceId = $state<string | null>(null)
+let scaleAnchor = $state<AnchorType>('se')
 
 export function getPlacementType() {
   return activeType
@@ -38,6 +41,14 @@ export function getSelectionMode() {
 export function setSelectionMode(mode: SelectionMode) {
   selectionMode = mode
   if (mode !== 'object') stretchMode = false
+}
+
+export function getScaleAnchor() {
+  return scaleAnchor
+}
+
+export function setScaleAnchor(anchor: AnchorType) {
+  scaleAnchor = anchor
 }
 
 export function getBooleanOp() {

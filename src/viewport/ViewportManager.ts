@@ -8,13 +8,15 @@ import { SelectionManager } from './SelectionManager'
 import { RotationController } from './RotationController'
 import { PlacementController } from './PlacementController'
 import { FaceEditor } from './FaceEditor'
-import type { Part, ShapeType } from '../types'
+import type { Part, ShapeType, BoxParams, WedgeParams } from '../types'
+import type { AnchorType } from '../store/placementStore.svelte'
 import {
   getStretchMode,
   getSnapUnit,
   setSelectionMode,
   setSnapUnit,
   getSelectionMode,
+  setScaleAnchor,
 } from '../store/placementStore.svelte'
 import {
   getProject,
@@ -58,6 +60,7 @@ export class ViewportManager {
 
   private scaleActive = false
   private scalePartId: string | null = null
+  private scaleAnchor: AnchorType = 'se'
   private scaleStartDims: Array<{
     index: number
     pos: [number, number, number]
@@ -324,7 +327,7 @@ export class ViewportManager {
       return
     }
 
-    // === SCALE MODE (S key): drag to uniform scale ===
+    // === SCALE MODE (S key): anchor-based grid expansion ===
     if (mode === 'scale') {
       const faceHit = this.faceEditor.raycastFace(e, this.camera, this.scene)
       if (faceHit) {
@@ -333,6 +336,21 @@ export class ViewportManager {
           this.scalePartId = faceHit.partId
           this.scaleStartX = e.clientX
           this.scaleStartY = e.clientY
+
+          const el = part.elements[faceHit.elementIndex]
+          if (el) {
+            const size = getShapeSize(el.shape)
+            const cx = part.transform.position[0] + el.transform.position[0] + size[0] / 2
+            const cz = part.transform.position[2] + el.transform.position[2] + size[2] / 2
+            const hitX = faceHit.point.x
+            const hitZ = faceHit.point.z
+            if (hitX >= cx && hitZ >= cz) this.scaleAnchor = 'se'
+            else if (hitX < cx && hitZ >= cz) this.scaleAnchor = 'sw'
+            else if (hitX >= cx && hitZ < cz) this.scaleAnchor = 'ne'
+            else this.scaleAnchor = 'nw'
+            setScaleAnchor(this.scaleAnchor)
+          }
+
           this.scaleStartDims = part.elements.map((el, i) => {
             const dims: Record<string, number> = {}
             const keys = this.getDimKeys(el.shape.type)
@@ -422,26 +440,56 @@ export class ViewportManager {
       return
     }
 
-    // Scale drag
+    // Scale drag - Anchor determined at click time
     if (this.scaleActive && this.scalePartId) {
-      const dx = e.clientX - this.scaleStartX
-      const dy = this.scaleStartY - e.clientY
+      const sx = e.clientX - this.scaleStartX
+      const sy = e.clientY - this.scaleStartY
       const unit = getSnapUnit()
+      const anchor = this.scaleAnchor
       const part = getProject().partMap[this.scalePartId]
       if (part) {
-        const dominantAxis = Math.abs(dx) > Math.abs(dy) ? 0 : 1
-        const dragAmount = dominantAxis === 0 ? dx : dy
-        const steps = Math.round(dragAmount / 20)
+        const forward = this.camera.getWorldDirection(new THREE.Vector3())
+        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize()
+
+        const rightXZ = new THREE.Vector2(right.x, right.z).normalize()
+        const downXZ = new THREE.Vector2(-forward.x, -forward.z).normalize()
+
+        let growthXZ: THREE.Vector2
+        if (anchor === 'se') growthXZ = new THREE.Vector2(1, 1)
+        else if (anchor === 'sw') growthXZ = new THREE.Vector2(-1, 1)
+        else if (anchor === 'ne') growthXZ = new THREE.Vector2(1, -1)
+        else growthXZ = new THREE.Vector2(-1, -1)
+        growthXZ.normalize()
+
+        const proj = sx * rightXZ.dot(growthXZ) + sy * downXZ.dot(growthXZ)
+        const steps = Math.round(proj / 20)
         for (const sd of this.scaleStartDims) {
           const el = part.elements[sd.index]
           if (!el) continue
-          const keys = this.getDimKeys(el.shape.type)
-          const dominantKey = keys[dominantAxis]
-          if (!dominantKey || sd.dims[dominantKey] <= 0) continue
-          const newDominant = sd.dims[dominantKey] + steps * unit
-          const ratio = newDominant / sd.dims[dominantKey]
-          for (const k of keys) {
-            ;(el.shape as Record<string, number>)[k] = Math.round(sd.dims[k] * ratio / unit) * unit
+          if (el.shape.type === 'box' || el.shape.type === 'wedge') {
+            const deltaW = steps * unit
+            const deltaD = steps * unit
+            const newW = Math.max(unit, sd.dims.width + deltaW)
+            const newD = Math.max(unit, sd.dims.depth + deltaD)
+            const shape = el.shape as BoxParams | WedgeParams
+            shape.width = newW
+            shape.depth = newD
+            const pos = [...sd.pos] as [number, number, number]
+            if (anchor === 'ne' || anchor === 'nw') {
+              pos[2] = sd.pos[2] + sd.dims.depth - newD
+            }
+            if (anchor === 'sw' || anchor === 'nw') {
+              pos[0] = sd.pos[0] + sd.dims.width - newW
+            }
+            el.transform.position = pos
+          } else {
+            const delta = steps * unit
+            const keys = this.getDimKeys(el.shape.type)
+            for (const k of keys) {
+              const oldVal = sd.dims[k]
+              if (oldVal <= 0) continue
+              ;(el.shape as Record<string, number>)[k] = Math.max(unit, Math.round((oldVal + delta) / unit) * unit)
+            }
           }
         }
         this.updatePartMeshInScene(this.scalePartId)
