@@ -646,10 +646,40 @@ export class ViewportManager {
 
       const dx = e.clientX - this.dragStart.x
       const dy = e.clientY - this.dragStart.y
-      if (Math.abs(dx) < this.clickThreshold && Math.abs(dy) < this.clickThreshold && e.button === 0) {
+      if (Math.abs(dx) < this.clickThreshold && Math.abs(dy) < this.clickThreshold) {
         if (getSelectionMode() === 'object') {
-          this.onSelect?.(movedPartId)
-          this.rotationController.show(movedPartId, this.scene)
+          // Ctrl+Right click: delete
+          if (e.ctrlKey && e.button === 2) {
+            this.removePartFromScene(movedPartId)
+            removePart(movedPartId)
+            this.selection.clearHighlight()
+            this.rotationController.hide()
+            return
+          }
+          // Ctrl+Left click: toggle multi-select
+          if (e.ctrlKey && e.button === 0) {
+            toggleSelectPart(movedPartId)
+            return
+          }
+          // Normal left click: single select
+          if (e.button === 0) {
+            this.onSelect?.(movedPartId)
+            this.selection.clearHighlight()
+            const mesh = this.partMeshes.get(movedPartId)
+            if (mesh) {
+              if (mesh instanceof THREE.Mesh) {
+                this.selection.highlight(mesh)
+              } else {
+                mesh.traverse((child) => {
+                  if (child instanceof THREE.Mesh && child.userData.partId === movedPartId) {
+                    this.selection.highlight(child)
+                  }
+                })
+              }
+            }
+            this.selection.highlightCombined(movedPartId, getProject().partMap, this.scene)
+            this.rotationController.show(movedPartId, this.scene)
+          }
         }
       }
       return
