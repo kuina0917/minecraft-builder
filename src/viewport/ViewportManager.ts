@@ -28,6 +28,7 @@ import {
   getSelectedPartIds,
   updateTransform,
   toggleSelectPart,
+  clearSelection,
   removePart,
   mergeSelected,
   ungroupSelected,
@@ -174,6 +175,7 @@ export class ViewportManager {
         e.preventDefault()
         setSelectionMode('object')
         this.faceEditor.clearHighlight()
+        this.faceEditor.deselect()
         return
       }
 
@@ -181,6 +183,7 @@ export class ViewportManager {
         e.preventDefault()
         setSelectionMode('scale')
         this.faceEditor.clearHighlight()
+        this.faceEditor.deselect()
         return
       }
 
@@ -808,6 +811,7 @@ export class ViewportManager {
             this.selection.highlightCombined(id, getProject().partMap, this.scene)
             this.rotationController.show(id, this.scene)
           } else {
+            clearSelection()
             this.rotationController.hide()
           }
         }
@@ -845,6 +849,9 @@ export class ViewportManager {
         }
         this.rotationController.hide()
         this.faceEditor.clearHighlight()
+        this.faceEditor.deselect()
+        this.selection.clearHighlight()
+        clearSelection()
         setSelectionMode('object')
       }
     })
