@@ -28,6 +28,7 @@ import {
   getSelectedPartId,
   updateTransform,
   toggleSelectPart,
+  removePart,
   mergeSelected,
   ungroupSelected,
   undo,
@@ -657,21 +658,35 @@ export class ViewportManager {
     // Click (no drag) in object mode
     const dx = e.clientX - this.dragStart.x
     const dy = e.clientY - this.dragStart.y
-    if (Math.abs(dx) < this.clickThreshold && Math.abs(dy) < this.clickThreshold && e.button === 0) {
+    if (Math.abs(dx) < this.clickThreshold && Math.abs(dy) < this.clickThreshold) {
       if (getStretchMode()) return // stretch mode handles selection on pointerdown
       if (getSelectionMode() !== 'object') return
 
-      if (e.ctrlKey) {
-        const id = this.selection.select(e, this.camera, this.scene, true)
-        if (id) toggleSelectPart(id)
-      } else {
-        const id = this.selection.select(e, this.camera, this.scene)
-        this.onSelect?.(id)
-        if (id) {
-          this.selection.highlightCombined(id, getProject().partMap, this.scene)
-          this.rotationController.show(id, this.scene)
-        } else {
+      // Ctrl+Right click: delete clicked part
+      if (e.ctrlKey && e.button === 2) {
+        const hit = this.selection.raycastFace(e, this.camera, this.scene)
+        if (hit) {
+          this.removePartFromScene(hit.partId)
+          removePart(hit.partId)
+          this.selection.clearHighlight()
           this.rotationController.hide()
+        }
+        return
+      }
+
+      if (e.button === 0) {
+        if (e.ctrlKey) {
+          const id = this.selection.select(e, this.camera, this.scene, true)
+          if (id) toggleSelectPart(id)
+        } else {
+          const id = this.selection.select(e, this.camera, this.scene)
+          this.onSelect?.(id)
+          if (id) {
+            this.selection.highlightCombined(id, getProject().partMap, this.scene)
+            this.rotationController.show(id, this.scene)
+          } else {
+            this.rotationController.hide()
+          }
         }
       }
     }
@@ -685,8 +700,8 @@ export class ViewportManager {
     canvas.addEventListener('pointerup', (e) => this.handlePointerUp(e))
 
     canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault()
       if (this.placement.active) {
-        e.preventDefault()
         this.placement.stop()
         this.controls.enabled = true
         canvas.style.cursor = 'default'
