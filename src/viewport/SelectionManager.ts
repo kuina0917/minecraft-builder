@@ -11,7 +11,7 @@ export class SelectionManager {
   private raycaster = new THREE.Raycaster()
   private pointer = new THREE.Vector2()
   private selectedObjects = new Map<string, { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[] }>()
-  private mergedMeshes = new Map<string, { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[]; wasVisible: boolean }>()
+  private mergedMeshes = new Map<string, { group: THREE.Group; meshes: { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[] }[]; wasVisible: boolean }>()
   private highlightMaterial = new THREE.MeshStandardMaterial({
     color: 0x44aaff,
     emissive: 0x2244aa,
@@ -95,13 +95,23 @@ export class SelectionManager {
     for (const mid of part.mergedPartIds) {
       if (this.mergedMeshes.has(mid)) continue
       scene.traverse((obj) => {
-        if (obj instanceof THREE.Mesh && obj.userData.partId === mid) {
-          if (!Array.isArray(obj.material)) {
-            const wasVisible = obj.visible
-            this.mergedMeshes.set(mid, { mesh: obj, material: obj.material, wasVisible })
-            obj.visible = true
-            obj.material = this.highlightMaterial.clone()
+        if (obj instanceof THREE.Group && obj.userData.partId === mid) {
+          const wasVisible = obj.visible
+          obj.visible = true
+          const meshes: THREE.Mesh[] = []
+          obj.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              meshes.push(child)
+            }
+          })
+          const entries: { mesh: THREE.Mesh; material: THREE.Material | THREE.Material[] }[] = []
+          for (const m of meshes) {
+            if (!Array.isArray(m.material)) {
+              entries.push({ mesh: m, material: m.material })
+              m.material = this.highlightMaterial.clone()
+            }
           }
+          this.mergedMeshes.set(mid, { group: obj, meshes: entries, wasVisible })
         }
       })
     }
@@ -109,8 +119,10 @@ export class SelectionManager {
 
   clearMergedHighlight(): void {
     for (const [, entry] of this.mergedMeshes) {
-      entry.mesh.material = entry.material
-      entry.mesh.visible = entry.wasVisible
+      for (const me of entry.meshes) {
+        me.mesh.material = me.material
+      }
+      entry.group.visible = entry.wasVisible
     }
     this.mergedMeshes.clear()
   }

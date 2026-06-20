@@ -82,8 +82,9 @@
     }
   })
 
-  // Sync highlight when selection changes from UI panel
+  // Sync highlight when selection or project changes
   $effect(() => {
+    getRevision()
     const selectedId = getSelectedPartId()
     if (!manager) return
     manager.syncHighlight()
