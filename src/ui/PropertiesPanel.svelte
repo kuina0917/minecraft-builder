@@ -7,6 +7,7 @@
   let currentId = $state<string | null>(null)
   let currentPart = $state<Part | null>(null)
   let selectedElement = $state(0)
+  let collapsedSections = $state<Set<string>>(new Set(['pivot', 'elemPivot', 'scale']))
 
   const shapeTypes: ShapeType[] = ['box', 'radial', 'sphere', 'wedge', 'ring', 'pipe', 'air']
 
@@ -154,6 +155,17 @@
     if (m === 'scale') return 'Scale'
     return 'Object'
   })
+
+  function toggleSection(id: string) {
+    const next = new Set(collapsedSections)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    collapsedSections = next
+  }
+
+  function isCollapsed(id: string): boolean {
+    return collapsedSections.has(id)
+  }
 </script>
 
 <div class="properties">
@@ -204,120 +216,148 @@
             </div>
           {/each}
 
-          <h4 class="section-title">要素オフセット</h4>
-          <div class="prop-row">
-            <div class="prop-group small">
-              <label for="elem-pos-x-{selectedElement}" class="prop-label">X</label>
-              <input id="elem-pos-x-{selectedElement}" type="number" value={element.transform.position[0]} onchange={handleElemPosChange} step="0.5" />
+          <button class="section-toggle" onclick={() => toggleSection('elemOffset')}>
+            <span class="section-title clickable">要素オフセット {isCollapsed('elemOffset') ? '▶' : '▼'}</span>
+          </button>
+          {#if !isCollapsed('elemOffset')}
+            <div class="prop-row">
+              <div class="prop-group small">
+                <label for="elem-pos-x-{selectedElement}" class="prop-label">X</label>
+                <input id="elem-pos-x-{selectedElement}" type="number" value={element.transform.position[0]} onchange={handleElemPosChange} step="0.5" />
+              </div>
+              <div class="prop-group small">
+                <label for="elem-pos-y-{selectedElement}" class="prop-label">Y</label>
+                <input id="elem-pos-y-{selectedElement}" type="number" value={element.transform.position[1]} onchange={handleElemPosChange} step="0.5" />
+              </div>
+              <div class="prop-group small">
+                <label for="elem-pos-z-{selectedElement}" class="prop-label">Z</label>
+                <input id="elem-pos-z-{selectedElement}" type="number" value={element.transform.position[2]} onchange={handleElemPosChange} step="0.5" />
+              </div>
             </div>
-            <div class="prop-group small">
-              <label for="elem-pos-y-{selectedElement}" class="prop-label">Y</label>
-              <input id="elem-pos-y-{selectedElement}" type="number" value={element.transform.position[1]} onchange={handleElemPosChange} step="0.5" />
-            </div>
-            <div class="prop-group small">
-              <label for="elem-pos-z-{selectedElement}" class="prop-label">Z</label>
-              <input id="elem-pos-z-{selectedElement}" type="number" value={element.transform.position[2]} onchange={handleElemPosChange} step="0.5" />
-            </div>
-          </div>
+          {/if}
 
-          <h4 class="section-title">要素回転</h4>
-          <div class="prop-row">
-            <div class="prop-group small">
-              <label for="elem-rot-x-{selectedElement}" class="prop-label">X</label>
-              <input id="elem-rot-x-{selectedElement}" type="number" value={element.transform.rotation[0]} onchange={handleElemRotChange} step="22.5" />
+          <button class="section-toggle" onclick={() => toggleSection('elemRot')}>
+            <span class="section-title clickable">要素回転 {isCollapsed('elemRot') ? '▶' : '▼'}</span>
+          </button>
+          {#if !isCollapsed('elemRot')}
+            <div class="prop-row">
+              <div class="prop-group small">
+                <label for="elem-rot-x-{selectedElement}" class="prop-label">X</label>
+                <input id="elem-rot-x-{selectedElement}" type="number" value={element.transform.rotation[0]} onchange={handleElemRotChange} step="22.5" />
+              </div>
+              <div class="prop-group small">
+                <label for="elem-rot-y-{selectedElement}" class="prop-label">Y</label>
+                <input id="elem-rot-y-{selectedElement}" type="number" value={element.transform.rotation[1]} onchange={handleElemRotChange} step="22.5" />
+              </div>
+              <div class="prop-group small">
+                <label for="elem-rot-z-{selectedElement}" class="prop-label">Z</label>
+                <input id="elem-rot-z-{selectedElement}" type="number" value={element.transform.rotation[2]} onchange={handleElemRotChange} step="22.5" />
+              </div>
             </div>
-            <div class="prop-group small">
-              <label for="elem-rot-y-{selectedElement}" class="prop-label">Y</label>
-              <input id="elem-rot-y-{selectedElement}" type="number" value={element.transform.rotation[1]} onchange={handleElemRotChange} step="22.5" />
-            </div>
-            <div class="prop-group small">
-              <label for="elem-rot-z-{selectedElement}" class="prop-label">Z</label>
-              <input id="elem-rot-z-{selectedElement}" type="number" value={element.transform.rotation[2]} onchange={handleElemRotChange} step="22.5" />
-            </div>
-          </div>
+          {/if}
 
-          <h4 class="section-title">要素Pivot</h4>
-          <div class="prop-row">
-            <div class="prop-group small">
-              <label for="elem-pivot-x-{selectedElement}" class="prop-label">X</label>
-              <input id="elem-pivot-x-{selectedElement}" type="number" value={element.transform.pivot[0]} onchange={handleElemPivotChange} step="0.5" />
+          <button class="section-toggle" onclick={() => toggleSection('elemPivot')}>
+            <span class="section-title clickable">要素Pivot {isCollapsed('elemPivot') ? '▶' : '▼'}</span>
+          </button>
+          {#if !isCollapsed('elemPivot')}
+            <div class="prop-row">
+              <div class="prop-group small">
+                <label for="elem-pivot-x-{selectedElement}" class="prop-label">X</label>
+                <input id="elem-pivot-x-{selectedElement}" type="number" value={element.transform.pivot[0]} onchange={handleElemPivotChange} step="0.5" />
+              </div>
+              <div class="prop-group small">
+                <label for="elem-pivot-y-{selectedElement}" class="prop-label">Y</label>
+                <input id="elem-pivot-y-{selectedElement}" type="number" value={element.transform.pivot[1]} onchange={handleElemPivotChange} step="0.5" />
+              </div>
+              <div class="prop-group small">
+                <label for="elem-pivot-z-{selectedElement}" class="prop-label">Z</label>
+                <input id="elem-pivot-z-{selectedElement}" type="number" value={element.transform.pivot[2]} onchange={handleElemPivotChange} step="0.5" />
+              </div>
             </div>
-            <div class="prop-group small">
-              <label for="elem-pivot-y-{selectedElement}" class="prop-label">Y</label>
-              <input id="elem-pivot-y-{selectedElement}" type="number" value={element.transform.pivot[1]} onchange={handleElemPivotChange} step="0.5" />
-            </div>
-            <div class="prop-group small">
-              <label for="elem-pivot-z-{selectedElement}" class="prop-label">Z</label>
-              <input id="elem-pivot-z-{selectedElement}" type="number" value={element.transform.pivot[2]} onchange={handleElemPivotChange} step="0.5" />
-            </div>
-          </div>
+          {/if}
         </div>
       {/if}
     {/if}
 
-    <h4 class="section-title">パーツ位置（ワールド）</h4>
-    <div class="prop-row">
-      <div class="prop-group small">
-        <label for="prop-pos-x" class="prop-label">X</label>
-        <input id="prop-pos-x" type="number" value={currentPart.transform.position[0]} onchange={handlePosChange} step="1" />
+    <button class="section-toggle" onclick={() => toggleSection('worldPos')}>
+      <span class="section-title clickable">パーツ位置（ワールド） {isCollapsed('worldPos') ? '▶' : '▼'}</span>
+    </button>
+    {#if !isCollapsed('worldPos')}
+      <div class="prop-row">
+        <div class="prop-group small">
+          <label for="prop-pos-x" class="prop-label">X</label>
+          <input id="prop-pos-x" type="number" value={currentPart.transform.position[0]} onchange={handlePosChange} step="1" />
+        </div>
+        <div class="prop-group small">
+          <label for="prop-pos-y" class="prop-label">Y</label>
+          <input id="prop-pos-y" type="number" value={currentPart.transform.position[1]} onchange={handlePosChange} step="1" />
+        </div>
+        <div class="prop-group small">
+          <label for="prop-pos-z" class="prop-label">Z</label>
+          <input id="prop-pos-z" type="number" value={currentPart.transform.position[2]} onchange={handlePosChange} step="1" />
+        </div>
       </div>
-      <div class="prop-group small">
-        <label for="prop-pos-y" class="prop-label">Y</label>
-        <input id="prop-pos-y" type="number" value={currentPart.transform.position[1]} onchange={handlePosChange} step="1" />
-      </div>
-      <div class="prop-group small">
-        <label for="prop-pos-z" class="prop-label">Z</label>
-        <input id="prop-pos-z" type="number" value={currentPart.transform.position[2]} onchange={handlePosChange} step="1" />
-      </div>
-    </div>
+    {/if}
 
-    <h4 class="section-title">回転</h4>
-    <div class="prop-row">
-      <div class="prop-group small">
-        <label for="prop-rot-x" class="prop-label">X</label>
-        <input id="prop-rot-x" type="number" value={currentPart.transform.rotation[0]} onchange={handleRotChange} step="22.5" />
+    <button class="section-toggle" onclick={() => toggleSection('rot')}>
+      <span class="section-title clickable">回転 {isCollapsed('rot') ? '▶' : '▼'}</span>
+    </button>
+    {#if !isCollapsed('rot')}
+      <div class="prop-row">
+        <div class="prop-group small">
+          <label for="prop-rot-x" class="prop-label">X</label>
+          <input id="prop-rot-x" type="number" value={currentPart.transform.rotation[0]} onchange={handleRotChange} step="22.5" />
+        </div>
+        <div class="prop-group small">
+          <label for="prop-rot-y" class="prop-label">Y</label>
+          <input id="prop-rot-y" type="number" value={currentPart.transform.rotation[1]} onchange={handleRotChange} step="22.5" />
+        </div>
+        <div class="prop-group small">
+          <label for="prop-rot-z" class="prop-label">Z</label>
+          <input id="prop-rot-z" type="number" value={currentPart.transform.rotation[2]} onchange={handleRotChange} step="22.5" />
+        </div>
       </div>
-      <div class="prop-group small">
-        <label for="prop-rot-y" class="prop-label">Y</label>
-        <input id="prop-rot-y" type="number" value={currentPart.transform.rotation[1]} onchange={handleRotChange} step="22.5" />
-      </div>
-      <div class="prop-group small">
-        <label for="prop-rot-z" class="prop-label">Z</label>
-        <input id="prop-rot-z" type="number" value={currentPart.transform.rotation[2]} onchange={handleRotChange} step="22.5" />
-      </div>
-    </div>
+    {/if}
 
-    <h4 class="section-title">Pivot</h4>
-    <div class="prop-row">
-      <div class="prop-group small">
-        <label for="prop-pivot-x" class="prop-label">X</label>
-        <input id="prop-pivot-x" type="number" value={currentPart.transform.pivot[0]} onchange={handlePivotChange} step="0.5" />
+    <button class="section-toggle" onclick={() => toggleSection('pivot')}>
+      <span class="section-title clickable">Pivot {isCollapsed('pivot') ? '▶' : '▼'}</span>
+    </button>
+    {#if !isCollapsed('pivot')}
+      <div class="prop-row">
+        <div class="prop-group small">
+          <label for="prop-pivot-x" class="prop-label">X</label>
+          <input id="prop-pivot-x" type="number" value={currentPart.transform.pivot[0]} onchange={handlePivotChange} step="0.5" />
+        </div>
+        <div class="prop-group small">
+          <label for="prop-pivot-y" class="prop-label">Y</label>
+          <input id="prop-pivot-y" type="number" value={currentPart.transform.pivot[1]} onchange={handlePivotChange} step="0.5" />
+        </div>
+        <div class="prop-group small">
+          <label for="prop-pivot-z" class="prop-label">Z</label>
+          <input id="prop-pivot-z" type="number" value={currentPart.transform.pivot[2]} onchange={handlePivotChange} step="0.5" />
+        </div>
       </div>
-      <div class="prop-group small">
-        <label for="prop-pivot-y" class="prop-label">Y</label>
-        <input id="prop-pivot-y" type="number" value={currentPart.transform.pivot[1]} onchange={handlePivotChange} step="0.5" />
-      </div>
-      <div class="prop-group small">
-        <label for="prop-pivot-z" class="prop-label">Z</label>
-        <input id="prop-pivot-z" type="number" value={currentPart.transform.pivot[2]} onchange={handlePivotChange} step="0.5" />
-      </div>
-    </div>
+    {/if}
 
     <h4 class="section-title">色</h4>
     <div class="prop-group">
       <input id="prop-color" type="color" value={currentPart.color} onchange={handleColorChange} style="width: 100%; height: 32px; padding: 2px;" />
     </div>
 
-    <h4 class="section-title">スケール</h4>
-    <div class="prop-row">
-      <div class="prop-group small">
-        <label for="prop-scale" class="prop-label">倍率</label>
-        <input id="prop-scale" type="number" value={1} step="0.1" min="0.1" />
+    <button class="section-toggle" onclick={() => toggleSection('scale')}>
+      <span class="section-title clickable">スケール {isCollapsed('scale') ? '▶' : '▼'}</span>
+    </button>
+    {#if !isCollapsed('scale')}
+      <div class="prop-row">
+        <div class="prop-group small">
+          <label for="prop-scale" class="prop-label">倍率</label>
+          <input id="prop-scale" type="number" value={1} step="0.1" min="0.1" />
+        </div>
+        <div class="prop-group small" style="display: flex; align-items: flex-end;">
+          <button class="scale-btn" onclick={handleScale}>適用</button>
+        </div>
       </div>
-      <div class="prop-group small" style="display: flex; align-items: flex-end;">
-        <button class="scale-btn" onclick={handleScale}>適用</button>
-      </div>
-    </div>
+    {/if}
 
     <div class="prop-actions">
       <button class="delete-btn" onclick={handleDelete}>削除</button>
@@ -352,4 +392,25 @@
   .delete-btn:hover { background: var(--accent-hover); }
   .scale-btn { width: 100%; padding: 4px 10px; background: var(--accent); color: white; border-radius: 4px; font-size: 11px; cursor: pointer; border: none; height: 26px; }
   .scale-btn:hover { background: var(--accent-hover); }
+
+  .section-toggle {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 8px 0 4px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .section-title.clickable {
+    margin: 0;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .section-title.clickable:hover {
+    color: var(--text-primary);
+  }
 </style>

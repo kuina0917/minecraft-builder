@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { getProject, undo } from '../store/projectStore.svelte'
-  import { getSelectionMode, setSelectionMode, getSnapUnit, setSnapUnit, getScaleAnchor } from '../store/placementStore.svelte'
+  import { getProject, undo, getSelectedPartIds, booleanAdd, booleanSubtract, booleanIntersect } from '../store/projectStore.svelte'
+  import { getSelectionMode, setSelectionMode, getSnapUnit, setSnapUnit, getScaleAnchor, isBooleanMode, startBooleanMode, cancelBooleanMode, getBooleanOp } from '../store/placementStore.svelte'
   import { saveProject } from '../lib/partEncoder'
   import ExportDialog from './ExportDialog.svelte'
-  import type { SelectionMode } from '../types'
+  import type { SelectionMode, BooleanOp } from '../types'
 
   let showExport = $state(false)
 
@@ -28,6 +28,19 @@
 
   function changeMode(mode: SelectionMode) {
     setSelectionMode(mode)
+  }
+
+  function handleBoolean(op: BooleanOp) {
+    const ids = getSelectedPartIds()
+    if (ids.length >= 2) {
+      switch (op) {
+        case 'add': booleanAdd(ids[0], ids[1]); break
+        case 'subtract': booleanSubtract(ids[0], ids[1]); break
+        case 'intersect': booleanIntersect(ids[0], ids[1]); break
+      }
+    } else if (ids.length === 1) {
+      startBooleanMode(op, ids[0])
+    }
   }
 </script>
 
@@ -56,6 +69,16 @@
     <button class="tool-btn" onclick={toggleSnap} title="スナップ単位を切替 (+/-)">
       Snap: {getSnapUnit()}
     </button>
+    <span class="separator"></span>
+    {#if isBooleanMode()}
+      <button class="tool-btn boolean-active" onclick={cancelBooleanMode} title="ブーリアンモードをキャンセル (ESC)">
+        {getBooleanOp() === 'add' ? '➕' : getBooleanOp() === 'subtract' ? '➖' : '∩'} 選択中... ✕
+      </button>
+    {:else}
+      <button class="tool-btn boolean-add" onclick={() => handleBoolean('add')} disabled={getSelectedPartIds().length < 1} title="ブーリアン加算">➕ Add</button>
+      <button class="tool-btn boolean-sub" onclick={() => handleBoolean('subtract')} disabled={getSelectedPartIds().length < 1} title="ブーリアン減算">➖ Sub</button>
+      <button class="tool-btn boolean-int" onclick={() => handleBoolean('intersect')} disabled={getSelectedPartIds().length < 1} title="ブーリアン積集合">∩ Int</button>
+    {/if}
     <span class="separator"></span>
     <button class="tool-btn" onclick={handleExport} title="エクスポート (Ctrl+E)">エクスポート</button>
   </div>
@@ -168,5 +191,31 @@
   .compass-cell.active {
     background: var(--accent);
     color: white;
+  }
+
+  .tool-btn.boolean-add:hover:not(:disabled) {
+    background: #2ecc71;
+    color: white;
+  }
+
+  .tool-btn.boolean-sub:hover:not(:disabled) {
+    background: #e74c3c;
+    color: white;
+  }
+
+  .tool-btn.boolean-int:hover:not(:disabled) {
+    background: #3498db;
+    color: white;
+  }
+
+  .tool-btn.boolean-active {
+    background: var(--accent);
+    color: white;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
   }
 </style>

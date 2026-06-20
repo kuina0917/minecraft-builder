@@ -57,6 +57,7 @@ export function getBooleanOp() {
 
 export function setBooleanOp(op: BooleanOp | null) {
   booleanOp = op
+  if (op === null) booleanSourceId = null
 }
 
 export function getBooleanSourceId() {
@@ -65,4 +66,18 @@ export function getBooleanSourceId() {
 
 export function setBooleanSourceId(id: string | null) {
   booleanSourceId = id
+}
+
+export function isBooleanMode() {
+  return booleanOp !== null
+}
+
+export function startBooleanMode(op: BooleanOp, sourceId: string) {
+  booleanOp = op
+  booleanSourceId = sourceId
+}
+
+export function cancelBooleanMode() {
+  booleanOp = null
+  booleanSourceId = null
 }

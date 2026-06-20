@@ -1,8 +1,8 @@
 <script lang="ts">
   import { getProject, getSelectedPartIds, selectPart, toggleSelectPart, mergeSelected, ungroupSelected, splitSelected, toggleVisibility, booleanAdd, booleanSubtract, booleanIntersect } from '../store/projectStore.svelte'
-  import { getBooleanOp, setBooleanOp, getBooleanSourceId, setBooleanSourceId } from '../store/placementStore.svelte'
+  import { getBooleanOp, setBooleanOp, getBooleanSourceId, setBooleanSourceId, isBooleanMode, startBooleanMode, cancelBooleanMode } from '../store/placementStore.svelte'
   import { getShapeIcon, getShapeName } from '../parts/ShapeRegistry'
-  import type { Part } from '../types'
+  import type { Part, BooleanOp } from '../types'
 
   let dragStartId = $state<string | null>(null)
   let didDrag = false
@@ -63,19 +63,26 @@
     return Object.values(getProject().partMap).filter((p) => p.parentId === parentId)
   }
 
-  let booleanActive = $derived(getBooleanOp() !== null)
+  let booleanActive = $derived(isBooleanMode())
   let booleanSourceId = $derived(getBooleanSourceId())
 
-  function startBooleanOp(op: 'add' | 'subtract' | 'intersect') {
+  function startBooleanOp(op: BooleanOp) {
     const ids = getSelectedPartIds()
-    if (ids.length < 2) return
-    const sourceId = ids[0]
-    const targetId = ids[1]
-    switch (op) {
-      case 'add': booleanAdd(sourceId, targetId); break
-      case 'subtract': booleanSubtract(sourceId, targetId); break
-      case 'intersect': booleanIntersect(sourceId, targetId); break
+    if (ids.length >= 2) {
+      const sourceId = ids[0]
+      const targetId = ids[1]
+      switch (op) {
+        case 'add': booleanAdd(sourceId, targetId); break
+        case 'subtract': booleanSubtract(sourceId, targetId); break
+        case 'intersect': booleanIntersect(sourceId, targetId); break
+      }
+    } else if (ids.length === 1) {
+      startBooleanMode(op, ids[0])
     }
+  }
+
+  function cancelBoolean() {
+    cancelBooleanMode()
   }
 </script>
 
@@ -167,24 +174,34 @@
   </div>
 
   <div class="hierarchy-actions" style="border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">
-    <button
-      class="action-btn boolean-add"
-      onclick={() => startBooleanOp('add')}
-      disabled={getSelectedPartIds().length < 2}
-      title="ブーリアン加算"
-    >➕ Add</button>
-    <button
-      class="action-btn boolean-sub"
-      onclick={() => startBooleanOp('subtract')}
-      disabled={getSelectedPartIds().length < 2}
-      title="ブーリアン減算 (穴あけ)"
-    >➖ Sub</button>
-    <button
-      class="action-btn boolean-int"
-      onclick={() => startBooleanOp('intersect')}
-      disabled={getSelectedPartIds().length < 2}
-      title="ブーリアン積集合"
-    >∩ Int</button>
+    {#if booleanActive}
+      <div class="boolean-mode-indicator">
+        <span class="boolean-mode-label">
+          {getBooleanOp() === 'add' ? '➕ 加算' : getBooleanOp() === 'subtract' ? '➖ 減算' : '∩ 積集合'}モード
+        </span>
+        <button class="action-btn boolean-cancel" onclick={cancelBoolean} title="キャンセル (ESC)">✕</button>
+      </div>
+      <p class="boolean-hint">ターゲットをクリック (ESC: キャンセル)</p>
+    {:else}
+      <button
+        class="action-btn boolean-add"
+        onclick={() => startBooleanOp('add')}
+        disabled={getSelectedPartIds().length < 1}
+        title="ブーリアン加算 (2つ選択で即実行、1つ選択でモード開始)"
+      >➕ Add</button>
+      <button
+        class="action-btn boolean-sub"
+        onclick={() => startBooleanOp('subtract')}
+        disabled={getSelectedPartIds().length < 1}
+        title="ブーリアン減算 (2つ選択で即実行、1つ選択でモード開始)"
+      >➖ Sub</button>
+      <button
+        class="action-btn boolean-int"
+        onclick={() => startBooleanOp('intersect')}
+        disabled={getSelectedPartIds().length < 1}
+        title="ブーリアン積集合 (2つ選択で即実行、1つ選択でモード開始)"
+      >∩ Int</button>
+    {/if}
   </div>
 </div>
 
@@ -343,5 +360,41 @@
 
   .boolean-int:hover:not(:disabled) {
     background: #3498db;
+  }
+
+  .boolean-mode-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--accent);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .boolean-mode-label {
+    flex: 1;
+    font-weight: 600;
+  }
+
+  .boolean-cancel {
+    flex: none;
+    padding: 2px 8px;
+    background: rgba(255,255,255,0.2) !important;
+    color: white !important;
+  }
+
+  .boolean-cancel:hover {
+    background: rgba(255,255,255,0.3) !important;
+  }
+
+  .boolean-hint {
+    width: 100%;
+    margin: 4px 0 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: center;
   }
 </style>

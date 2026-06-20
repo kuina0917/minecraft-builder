@@ -17,6 +17,11 @@ import {
   setSnapUnit,
   getSelectionMode,
   setScaleAnchor,
+  isBooleanMode,
+  getBooleanOp,
+  getBooleanSourceId,
+  setBooleanSourceId,
+  cancelBooleanMode,
 } from '../store/placementStore.svelte'
 import {
   getProject,
@@ -29,6 +34,9 @@ import {
   bumpRevision,
   isWireframeEnabled,
   setWireframeEnabled,
+  booleanAdd,
+  booleanSubtract,
+  booleanIntersect,
 } from '../store/projectStore.svelte'
 
 export class ViewportManager {
@@ -290,6 +298,30 @@ export class ViewportManager {
         this.controls.enabled = false
         return
       }
+    }
+
+    // === BOOLEAN MODE: click to select source/target ===
+    if (isBooleanMode()) {
+      const hit = this.faceEditor.raycastFace(e, this.camera, this.scene)
+      if (hit) {
+        const sourceId = getBooleanSourceId()
+        if (!sourceId) {
+          setBooleanSourceId(hit.partId)
+        } else {
+          const op = getBooleanOp()
+          if (op && hit.partId !== sourceId) {
+            switch (op) {
+              case 'add': booleanAdd(sourceId, hit.partId); break
+              case 'subtract': booleanSubtract(sourceId, hit.partId); break
+              case 'intersect': booleanIntersect(sourceId, hit.partId); break
+            }
+          }
+          cancelBooleanMode()
+        }
+      } else {
+        cancelBooleanMode()
+      }
+      return
     }
 
     const mode = getSelectionMode()
@@ -636,6 +668,10 @@ export class ViewportManager {
         e.preventDefault()
       }
       if (e.key === 'Escape') {
+        if (isBooleanMode()) {
+          cancelBooleanMode()
+          return
+        }
         this.rotationController.hide()
         this.faceEditor.clearHighlight()
         setSelectionMode('object')

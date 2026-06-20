@@ -466,41 +466,35 @@ export function booleanAdd(sourceId: string, targetId: string): string | null {
   const target = project.partMap[targetId]
   if (!source || !target) return null
 
-  const sSize = getShapeSize(source.elements[0]?.shape ?? { type: 'box', width: 1, height: 1, depth: 1 })
-  const tSize = getShapeSize(target.elements[0]?.shape ?? { type: 'box', width: 1, height: 1, depth: 1 })
+  const relX = target.transform.position[0] - source.transform.position[0]
+  const relY = target.transform.position[1] - source.transform.position[1]
+  const relZ = target.transform.position[2] - source.transform.position[2]
 
-  const minX = Math.min(source.transform.position[0], target.transform.position[0])
-  const minY = Math.min(source.transform.position[1], target.transform.position[1])
-  const minZ = Math.min(source.transform.position[2], target.transform.position[2])
-  const maxX = Math.max(source.transform.position[0] + sSize[0], target.transform.position[0] + tSize[0])
-  const maxY = Math.max(source.transform.position[1] + sSize[1], target.transform.position[1] + tSize[1])
-  const maxZ = Math.max(source.transform.position[2] + sSize[2], target.transform.position[2] + tSize[2])
-
-  const mergedId = generateId()
-  const merged: Part = {
-    id: mergedId,
-    name: `${source.name}+${target.name}`,
-    elements: [{ shape: { type: 'box', width: maxX - minX, height: maxY - minY, depth: maxZ - minZ }, transform: { position: [0, 0, 0], rotation: [0, 0, 0], pivot: [0, 0, 0] } }],
-    transform: {
-      position: [minX, minY, minZ],
-      rotation: [0, 0, 0],
-      pivot: [0, 0, 0],
-    },
-    parentId: null,
-    visible: true,
-    color: source.color,
+  for (const el of target.elements) {
+    const newEl = {
+      shape: { ...el.shape },
+      transform: {
+        position: [
+          el.transform.position[0] + relX,
+          el.transform.position[1] + relY,
+          el.transform.position[2] + relZ,
+        ] as [number, number, number],
+        rotation: [...el.transform.rotation] as [number, number, number],
+        pivot: [...el.transform.pivot] as [number, number, number],
+      }
+    }
+    source.elements.push(newEl as any)
   }
-  project.partMap[mergedId] = merged
-  project.rootParts.push(mergedId)
 
-  delete project.partMap[sourceId]
+  source.name = `${source.name}+${target.name}`
+
   delete project.partMap[targetId]
-  project.rootParts = project.rootParts.filter((pid) => pid !== sourceId && pid !== targetId)
+  project.rootParts = project.rootParts.filter((pid) => pid !== targetId)
 
-  selectedPartId = mergedId
-  selectedPartIds = [mergedId]
+  selectedPartId = sourceId
+  selectedPartIds = [sourceId]
   revision++
-  return mergedId
+  return sourceId
 }
 
 export function booleanSubtract(sourceId: string, targetId: string): string | null {
@@ -509,48 +503,15 @@ export function booleanSubtract(sourceId: string, targetId: string): string | nu
   const target = project.partMap[targetId]
   if (!source || !target) return null
 
-  const resultId = generateId()
-  const result: Part = {
-    id: resultId,
-    name: `${source.name}-${target.name}`,
-    elements: [{ shape: { type: 'air' }, transform: { position: [0, 0, 0], rotation: [0, 0, 0], pivot: [0, 0, 0] } }],
-    transform: {
-      position: [source.transform.position[0], source.transform.position[1], source.transform.position[2]],
-      rotation: [0, 0, 0],
-      pivot: [0, 0, 0],
-    },
-    parentId: null,
-    visible: true,
-    color: '#888899',
-  }
-  project.partMap[resultId] = result
-  project.rootParts.push(resultId)
+  source.name = `${source.name}-${target.name}`
 
-  delete project.partMap[sourceId]
   delete project.partMap[targetId]
-  project.rootParts = project.rootParts.filter((pid) => pid !== sourceId && pid !== targetId)
+  project.rootParts = project.rootParts.filter((pid) => pid !== targetId)
 
-  selectedPartId = resultId
-  selectedPartIds = [resultId]
-
-  const cutoutId = generateId()
-  const tSize = getShapeSize(target.elements[0]?.shape ?? { type: 'box', width: 1, height: 1, depth: 1 })
-  const cutout: Part = {
-    id: cutoutId,
-    name: 'cutout',
-    elements: [{ shape: { type: 'box', width: tSize[0], height: tSize[1], depth: tSize[2] }, transform: { position: [0, 0, 0], rotation: [0, 0, 0], pivot: [0, 0, 0] } }],
-    transform: {
-      position: [target.transform.position[0], target.transform.position[1], target.transform.position[2]],
-      rotation: [0, 0, 0],
-      pivot: [0, 0, 0],
-    },
-    parentId: resultId,
-    visible: true,
-    color: '#222244',
-  }
-  project.partMap[cutoutId] = cutout
+  selectedPartId = sourceId
+  selectedPartIds = [sourceId]
   revision++
-  return resultId
+  return sourceId
 }
 
 export function booleanIntersect(sourceId: string, targetId: string): string | null {
