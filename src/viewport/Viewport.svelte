@@ -85,7 +85,7 @@
   // Sync highlight when selection or project changes
   $effect(() => {
     getRevision()
-    const selectedId = getSelectedPartId()
+    const selectedIds = getSelectedPartIds()
     if (!manager) return
     manager.syncHighlight()
   })

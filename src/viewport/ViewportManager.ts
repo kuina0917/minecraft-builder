@@ -25,7 +25,7 @@ import {
 } from '../store/placementStore.svelte'
 import {
   getProject,
-  getSelectedPartId,
+  getSelectedPartIds,
   updateTransform,
   toggleSelectPart,
   removePart,
@@ -801,9 +801,9 @@ export class ViewportManager {
   }
 
   syncHighlight(): void {
-    const id = getSelectedPartId()
+    const ids = getSelectedPartIds()
     this.selection.clearHighlight()
-    if (id) {
+    for (const id of ids) {
       const mesh = this.partMeshes.get(id)
       if (mesh) {
         if (mesh instanceof THREE.Mesh) {
